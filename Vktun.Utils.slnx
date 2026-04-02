@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Vktun.Abp.Aliyun/Vktun.Abp.Aliyun.Base/Vktun.Abp.Aliyun.Base.csproj" />
+    <Project Path="src/Vktun.Abp.Aliyun/Vktun.Abp.Aliyun.Sms/Vktun.Abp.Aliyun.Sms.csproj" />
+    <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.Domain.Shared/Vktun.Abp.PhoneLogin.Domain.Shared.csproj" />
+    <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.Domain/Vktun.Abp.PhoneLogin.Domain.csproj" />
+    <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.Application.Contracts/Vktun.Abp.PhoneLogin.Application.Contracts.csproj" />
+    <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.Application/Vktun.Abp.PhoneLogin.Application.csproj" />
+    <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.HttpApi/Vktun.Abp.PhoneLogin.HttpApi.csproj" />
+  </Folder>
+</Solution>

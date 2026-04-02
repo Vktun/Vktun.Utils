@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Vktun.Abp.PhoneLogin.Domain\Vktun.Abp.PhoneLogin.Domain.csproj" />
+    <ProjectReference Include="..\Vktun.Abp.PhoneLogin.Application.Contracts\Vktun.Abp.PhoneLogin.Application.Contracts.csproj" />
+    <ProjectReference Include="..\..\Vktun.Abp.Aliyun\Vktun.Abp.Aliyun.Sms\Vktun.Abp.Aliyun.Sms.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Volo.Abp.Core" Version="9.0.*" />
+    <PackageReference Include="Volo.Abp.Identity.Application" Version="9.0.*" />
+    <PackageReference Include="Volo.Abp.AutoMapper" Version="9.0.*" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
