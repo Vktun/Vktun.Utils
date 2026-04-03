@@ -1,11 +1,18 @@
 <Solution>
-  <Folder Name="/src/">
-    <Project Path="src/Vktun.Abp.Aliyun/Vktun.Abp.Aliyun.Base/Vktun.Abp.Aliyun.Base.csproj" />
-    <Project Path="src/Vktun.Abp.Aliyun/Vktun.Abp.Aliyun.Sms/Vktun.Abp.Aliyun.Sms.csproj" />
+  <Folder Name="/src/Vktun.Abp.PhoneLogin/">
     <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.Domain.Shared/Vktun.Abp.PhoneLogin.Domain.Shared.csproj" />
     <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.Domain/Vktun.Abp.PhoneLogin.Domain.csproj" />
     <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.Application.Contracts/Vktun.Abp.PhoneLogin.Application.Contracts.csproj" />
     <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.Application/Vktun.Abp.PhoneLogin.Application.csproj" />
+    <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.EntityFrameworkCore/Vktun.Abp.PhoneLogin.EntityFrameworkCore.csproj" Id="94d332eb-8789-4faf-9dbc-d91efe868652" />
     <Project Path="src/Vktun.Abp.PhoneLogin/Vktun.Abp.PhoneLogin.HttpApi/Vktun.Abp.PhoneLogin.HttpApi.csproj" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Vktun.Abp.Aliyun/">
+    <Project Path="src/Vktun.Abp.Aliyun/Vktun.Abp.Aliyun.Base/Vktun.Abp.Aliyun.Base.csproj" />
+    <Project Path="src/Vktun.Abp.Aliyun/Vktun.Abp.Aliyun.Sms/Vktun.Abp.Aliyun.Sms.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Vktun.Abp.PhoneLogin.Validation/Vktun.Abp.PhoneLogin.Validation.csproj" />
   </Folder>
 </Solution>

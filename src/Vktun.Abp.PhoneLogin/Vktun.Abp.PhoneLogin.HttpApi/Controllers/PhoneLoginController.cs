@@ -29,4 +29,8 @@ public class PhoneLoginController : AbpControllerBase
     [HttpPost("change-password")]
     public Task ChangePasswordByPhoneAsync([FromBody] ChangePasswordByPhoneInput input)
         => _phoneLoginAppService.ChangePasswordByPhoneAsync(input);
+
+    [HttpPost("request-token")]
+    public Task<string> RequestTokenAsync([FromBody] PhoneLoginInput input)
+        => _phoneLoginAppService.RequestTokenAsync(input);
 }

@@ -1,62 +1,82 @@
+using System.Net.Http;
+using Microsoft.Extensions.Configuration;
 using Volo.Abp;
 using Volo.Abp.Application.Services;
-using Volo.Abp.Data;
+using Volo.Abp.Guids;
 using Volo.Abp.Identity;
-using Vktun.PhoneLogin;
-using Vktun.Abp.Aliyun.Sms;
+using Volo.Abp.MultiTenancy;
+using Volo.Abp.Settings;
 
 namespace Vktun.PhoneLogin;
 
+/// <summary>
+/// Provides phone-based registration, password reset, and token login flows.
+/// </summary>
 public class PhoneLoginAppService : ApplicationService, IPhoneLoginAppService
 {
+    private const string TenantHeaderName = "__tenant";
+
     private readonly IPhoneNumberValidator _phoneNumberValidator;
     private readonly ISmsCodeStore _smsCodeStore;
     private readonly ISmsSender _smsSender;
-    private readonly IdentityUserManager _userManager;
-    private readonly IIdentityUserRepository _userRepository;
+    private readonly IPhoneLoginIdentityService _identityService;
+    private readonly IPhoneLoginUserLookup _userLookup;
+    private readonly IConfiguration _configuration;
+    private readonly ISettingProvider _settingProvider;
+    private readonly ICurrentTenant _currentTenant;
+    private readonly IGuidGenerator _guidGenerator;
 
     public PhoneLoginAppService(
         IPhoneNumberValidator phoneNumberValidator,
         ISmsCodeStore smsCodeStore,
         ISmsSender smsSender,
-        IdentityUserManager userManager,
-        IIdentityUserRepository userRepository)
+        IPhoneLoginIdentityService identityService,
+        IPhoneLoginUserLookup userLookup,
+        IConfiguration configuration,
+        ISettingProvider settingProvider,
+        ICurrentTenant currentTenant,
+        IGuidGenerator guidGenerator)
     {
         _phoneNumberValidator = phoneNumberValidator;
         _smsCodeStore = smsCodeStore;
         _smsSender = smsSender;
-        _userManager = userManager;
-        _userRepository = userRepository;
+        _identityService = identityService;
+        _userLookup = userLookup;
+        _configuration = configuration;
+        _settingProvider = settingProvider;
+        _currentTenant = currentTenant;
+        _guidGenerator = guidGenerator;
     }
 
     public async Task SendSmsCodeAsync(SendPhoneCodeInput input)
     {
         _phoneNumberValidator.Validate(input.PhoneNumber);
 
-        var templateCode = input.IsRegister
-            ? await SettingProvider.GetOrNullAsync(PhoneLoginSettingNames.Sms.TemplateCodeForRegister)
-            : await SettingProvider.GetOrNullAsync(PhoneLoginSettingNames.Sms.TemplateCode);
+        var templateCode = await GetRequiredSettingAsync(
+            input.IsRegister
+                ? PhoneLoginSettingNames.Sms.TemplateCodeForRegister
+                : PhoneLoginSettingNames.Sms.TemplateCode);
 
         var code = await _smsCodeStore.GenerateAndSetAsync(input.PhoneNumber);
-        await _smsSender.SendAsync(new SmsSendRequest
+        var sendResult = await _smsSender.SendAsync(new SmsSendRequest
         {
             PhoneNumber = input.PhoneNumber,
-            SignName = (await SettingProvider.GetOrNullAsync(PhoneLoginSettingNames.Sms.SignName))!,
-            TemplateCode = templateCode ?? "",
+            SignName = await GetRequiredSettingAsync(PhoneLoginSettingNames.Sms.SignName),
+            TemplateCode = templateCode,
             TemplateParam = $"{{\"code\":\"{code}\"}}"
         });
+
+        if (!sendResult)
+        {
+            throw new UserFriendlyException(
+                PhoneLoginErrorCodes.SmsCodeSendFailed,
+                "Failed to send SMS verification code");
+        }
     }
 
     public async Task<string> LoginAsync(PhoneLoginInput input)
     {
-        _phoneNumberValidator.Validate(input.PhoneNumber);
-        await _smsCodeStore.ValidateAsync(input.PhoneNumber, input.Code);
-
-        var user = await FindByPhoneNumberAsync(input.PhoneNumber);
-        if (user == null)
-            throw new UserFriendlyException(PhoneLoginErrorCodes.UserNotFoundByPhone, "User not found with this phone number");
-
-        return user.Id.ToString();
+        return await RequestTokenInternalAsync(input);
     }
 
     public async Task RegisterAsync(PhoneRegisterInput input)
@@ -64,24 +84,24 @@ public class PhoneLoginAppService : ApplicationService, IPhoneLoginAppService
         _phoneNumberValidator.Validate(input.PhoneNumber);
         await _smsCodeStore.ValidateAsync(input.PhoneNumber, input.Code);
 
-        var existingUser = await FindByPhoneNumberAsync(input.PhoneNumber);
+        var existingUser = await _userLookup.FindByPhoneNumberAsync(input.PhoneNumber);
         if (existingUser != null)
-            throw new UserFriendlyException(PhoneLoginErrorCodes.PhoneAlreadyExists, "Phone number already registered");
+        {
+            throw new UserFriendlyException(
+                PhoneLoginErrorCodes.PhoneAlreadyExists,
+                "Phone number already registered");
+        }
 
-        var tenantId = CurrentTenant.Id;
         var user = new IdentityUser(
-            GuidGenerator.Create(),
-            input.UserName ?? input.PhoneNumber,
-            tenantId.HasValue ? tenantId.Value.ToString() : null,
-            CurrentTenant.Id
-        );
+            _guidGenerator.Create(),
+            input.UserName ?? $"Phone_{input.PhoneNumber}",
+            $"{input.PhoneNumber}@phone.local",
+            _currentTenant.Id);
+
         user.SetPhoneNumber(input.PhoneNumber, true);
 
-        var result = await _userManager.CreateAsync(user, input.Password);
-        if (!result.Succeeded)
-        {
-            throw new UserFriendlyException(result.Errors.Select(e => e.Description).JoinAsString(", "));
-        }
+        await _identityService.CreateAsync(user, input.Password);
+        await _identityService.AddDefaultRolesAsync(user);
     }
 
     public async Task ChangePasswordByPhoneAsync(ChangePasswordByPhoneInput input)
@@ -89,21 +109,82 @@ public class PhoneLoginAppService : ApplicationService, IPhoneLoginAppService
         _phoneNumberValidator.Validate(input.PhoneNumber);
         await _smsCodeStore.ValidateAsync(input.PhoneNumber, input.Code);
 
-        var user = await FindByPhoneNumberAsync(input.PhoneNumber);
+        var user = await _userLookup.FindByPhoneNumberAsync(input.PhoneNumber);
         if (user == null)
-            throw new UserFriendlyException(PhoneLoginErrorCodes.UserNotFoundByPhone, "User not found with this phone number");
-
-        var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var result = await _userManager.ResetPasswordAsync(user, token, input.NewPassword);
-        if (!result.Succeeded)
         {
-            throw new UserFriendlyException(result.Errors.Select(e => e.Description).JoinAsString(", "));
+            throw new UserFriendlyException(
+                PhoneLoginErrorCodes.UserNotFoundByPhone,
+                "User not found with this phone number");
         }
+
+        var token = await _identityService.GeneratePasswordResetTokenAsync(user);
+        await _identityService.ResetPasswordAsync(user, token, input.NewPassword);
     }
 
-    private async Task<IdentityUser?> FindByPhoneNumberAsync(string phoneNumber)
+    public async Task<string> RequestTokenAsync(PhoneLoginInput input)
     {
-        var users = await _userRepository.GetListAsync(skipCount: 0, maxResultCount: int.MaxValue, sorting: nameof(IdentityUser.Id));
-        return users.FirstOrDefault(x => x.PhoneNumber == phoneNumber);
+        return await RequestTokenInternalAsync(input);
+    }
+
+    private async Task<string> RequestTokenInternalAsync(PhoneLoginInput input)
+    {
+        _phoneNumberValidator.Validate(input.PhoneNumber);
+
+        var authority = _configuration["AuthServer:Authority"]?.TrimEnd('/');
+        var clientId = _configuration["AuthServer:ClientId"];
+        var clientSecret = _configuration["AuthServer:ClientSecret"];
+
+        if (authority.IsNullOrWhiteSpace() || clientId.IsNullOrWhiteSpace())
+        {
+            throw new UserFriendlyException(
+                "Phone login token request requires AuthServer:Authority and AuthServer:ClientId configuration.");
+        }
+
+        var form = new Dictionary<string, string>
+        {
+            ["grant_type"] = PhoneLoginConsts.GrantType,
+            ["client_id"] = clientId!,
+            ["phonenumber"] = input.PhoneNumber,
+            ["code"] = input.Code
+        };
+
+        if (!clientSecret.IsNullOrWhiteSpace())
+        {
+            form["client_secret"] = clientSecret!;
+        }
+
+        using var httpClient = new HttpClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{authority}/connect/token")
+        {
+            Content = new FormUrlEncodedContent(form)
+        };
+
+        if (_currentTenant.Id.HasValue)
+        {
+            request.Headers.Add(TenantHeaderName, _currentTenant.Id.Value.ToString());
+        }
+
+        using var response = await httpClient.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new UserFriendlyException(string.IsNullOrWhiteSpace(content)
+                ? "Failed to request token from the OpenIddict token endpoint."
+                : content);
+        }
+        return content;
+    }
+
+    private async Task<string> GetRequiredSettingAsync(string name)
+    {
+        var value = await _settingProvider.GetOrNullAsync(name)
+            ?? _configuration[name.Replace('.', ':')];
+        if (value.IsNullOrWhiteSpace())
+        {
+            throw new UserFriendlyException($"Missing required setting: {name}");
+        }
+
+        return value!;
     }
 }
