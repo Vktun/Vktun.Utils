@@ -32,7 +32,6 @@ public class PhoneLoginDomainModule : AbpModule
 
         context.Services.AddTransient<IPhoneNumberValidator, PhoneNumberValidator>();
         context.Services.AddTransient<IPhoneLoginIdentityService, PhoneLoginIdentityService>();
-        context.Services.AddTransient<IPhoneLoginUserLookup, IdentityPhoneLoginUserLookup>();
         context.Services.AddTransient<ISmsCodeStore, DefaultSmsCodeStore>();
         context.Services.AddSingleton<ISmsProviderFactory, SmsProviderFactory>();
         context.Services.AddTransient<AliyunSmsSender>();
