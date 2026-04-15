@@ -81,6 +81,14 @@ public class InMemoryPhoneLoginIdentityService(PhoneLoginValidationState state) 
     {
         return Task.FromResult(user.PhoneNumberConfirmed);
     }
+
+    public Task<bool> CheckPasswordAsync(IdentityUser user, string password)
+    {
+        return Task.FromResult(
+            user.PhoneNumber is not null &&
+            _state.Passwords.TryGetValue(user.PhoneNumber, out var currentPassword) &&
+            currentPassword == password);
+    }
 }
 
 public sealed class ValidationTokenServer(IServiceProvider serviceProvider, int port) : IAsyncDisposable
@@ -196,9 +204,10 @@ public sealed class ValidationTokenServer(IServiceProvider serviceProvider, int 
         var body = await reader.ReadToEndAsync();
         var form = QueryHelpers.ParseQuery(body);
 
-        var grantType = form["grant_type"].ToString();
-        var phoneNumber = form["phonenumber"].ToString();
-        var code = form["code"].ToString();
+        var grantType = form.TryGetValue("grant_type", out var grantTypeValue) ? grantTypeValue.ToString() : string.Empty;
+        var phoneNumber = form.TryGetValue("phonenumber", out var phoneNumberValue) ? phoneNumberValue.ToString() : string.Empty;
+        var code = form.TryGetValue("code", out var codeValue) ? codeValue.ToString() : string.Empty;
+        var password = form.TryGetValue("password", out var passwordValue) ? passwordValue.ToString() : string.Empty;
 
         if (grantType != PhoneLoginConsts.GrantType)
         {
@@ -209,10 +218,19 @@ public sealed class ValidationTokenServer(IServiceProvider serviceProvider, int 
         try
         {
             validator.Validate(phoneNumber);
-            await codeStore.ValidateAsync(phoneNumber, code);
 
             var user = await userLookup.FindByPhoneNumberAsync(phoneNumber);
             if (user is null || !await identityService.IsPhoneNumberConfirmedAsync(user))
+            {
+                await WriteJsonAsync(context, HttpStatusCode.BadRequest, new { error = "invalid_grant" });
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                await codeStore.ValidateAsync(phoneNumber, code);
+            }
+            else if (!await identityService.CheckPasswordAsync(user, password))
             {
                 await WriteJsonAsync(context, HttpStatusCode.BadRequest, new { error = "invalid_grant" });
                 return;

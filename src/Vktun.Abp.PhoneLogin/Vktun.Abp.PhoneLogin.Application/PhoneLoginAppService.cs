@@ -57,7 +57,13 @@ public class PhoneLoginAppService : ApplicationService, IPhoneLoginAppService
                 ? PhoneLoginSettingNames.Sms.TemplateCodeForRegister
                 : PhoneLoginSettingNames.Sms.TemplateCode);
 
-        var code = await _smsCodeStore.GenerateAndSetAsync(input.PhoneNumber);
+        var codeLength = await GetSettingAsync(
+            PhoneLoginSettingNames.Sms.CodeLength,
+            PhoneLoginConsts.DefaultCodeLength);
+        var expireSeconds = await GetSettingAsync(
+            PhoneLoginSettingNames.Sms.CodeExpireSeconds,
+            PhoneLoginConsts.DefaultCodeExpireSeconds);
+        var code = await _smsCodeStore.GenerateAndSetAsync(input.PhoneNumber, codeLength, expireSeconds);
         var sendResult = await _smsSender.SendAsync(new SmsSendRequest
         {
             PhoneNumber = input.PhoneNumber,
@@ -76,7 +82,7 @@ public class PhoneLoginAppService : ApplicationService, IPhoneLoginAppService
 
     public async Task<string> LoginAsync(PhoneLoginInput input)
     {
-        return await RequestTokenInternalAsync(input);
+        return await RequestTokenByCodeAsync(input);
     }
 
     public async Task RegisterAsync(PhoneRegisterInput input)
@@ -123,13 +129,31 @@ public class PhoneLoginAppService : ApplicationService, IPhoneLoginAppService
 
     public async Task<string> RequestTokenAsync(PhoneLoginInput input)
     {
-        return await RequestTokenInternalAsync(input);
+        return await RequestTokenByCodeAsync(input);
     }
 
-    private async Task<string> RequestTokenInternalAsync(PhoneLoginInput input)
+    public async Task<string> RequestTokenByCodeAsync(PhoneLoginInput input)
     {
         _phoneNumberValidator.Validate(input.PhoneNumber);
 
+        return await RequestTokenInternalAsync(input.PhoneNumber, new Dictionary<string, string>
+        {
+            ["code"] = input.Code
+        });
+    }
+
+    public async Task<string> RequestTokenByPasswordAsync(PhonePasswordLoginInput input)
+    {
+        _phoneNumberValidator.Validate(input.PhoneNumber);
+
+        return await RequestTokenInternalAsync(input.PhoneNumber, new Dictionary<string, string>
+        {
+            ["password"] = input.Password
+        });
+    }
+
+    private async Task<string> RequestTokenInternalAsync(string phoneNumber, Dictionary<string, string> credentialParameters)
+    {
         var authority = _configuration["AuthServer:Authority"]?.TrimEnd('/');
         var clientId = _configuration["AuthServer:ClientId"];
         var clientSecret = _configuration["AuthServer:ClientSecret"];
@@ -144,9 +168,13 @@ public class PhoneLoginAppService : ApplicationService, IPhoneLoginAppService
         {
             ["grant_type"] = PhoneLoginConsts.GrantType,
             ["client_id"] = clientId!,
-            ["phonenumber"] = input.PhoneNumber,
-            ["code"] = input.Code
+            ["phonenumber"] = phoneNumber
         };
+
+        foreach (var parameter in credentialParameters)
+        {
+            form[parameter.Key] = parameter.Value;
+        }
 
         if (!clientSecret.IsNullOrWhiteSpace())
         {
@@ -186,5 +214,13 @@ public class PhoneLoginAppService : ApplicationService, IPhoneLoginAppService
         }
 
         return value!;
+    }
+
+    private async Task<int> GetSettingAsync(string name, int defaultValue)
+    {
+        var value = await _settingProvider.GetOrNullAsync(name)
+            ?? _configuration[name.Replace('.', ':')];
+
+        return int.TryParse(value, out var parsedValue) ? parsedValue : defaultValue;
     }
 }

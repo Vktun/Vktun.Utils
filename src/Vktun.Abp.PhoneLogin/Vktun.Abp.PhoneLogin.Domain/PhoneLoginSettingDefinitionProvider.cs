@@ -10,8 +10,8 @@ public class PhoneLoginSettingDefinitionProvider : SettingDefinitionProvider
             new SettingDefinition(PhoneLoginSettingNames.Sms.SignName, string.Empty),
             new SettingDefinition(PhoneLoginSettingNames.Sms.TemplateCode, string.Empty),
             new SettingDefinition(PhoneLoginSettingNames.Sms.TemplateCodeForRegister, string.Empty),
-            new SettingDefinition(PhoneLoginSettingNames.Sms.CodeLength, "6"),
-            new SettingDefinition(PhoneLoginSettingNames.Sms.CodeExpireSeconds, "300"),
+            new SettingDefinition(PhoneLoginSettingNames.Sms.CodeLength, PhoneLoginConsts.DefaultCodeLength.ToString()),
+            new SettingDefinition(PhoneLoginSettingNames.Sms.CodeExpireSeconds, PhoneLoginConsts.DefaultCodeExpireSeconds.ToString()),
             new SettingDefinition(PhoneLoginSettingNames.Sms.MaxSendFrequencyInSeconds, "60"));
     }
 }

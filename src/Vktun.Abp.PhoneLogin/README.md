@@ -1,164 +1,131 @@
 # Vktun.Abp.PhoneLogin
 
-基于 ABP Framework 的手机号登录模块，支持：
+ABP Framework 手机号登录模块，面向 NuGet 复用场景，提供短信验证码、手机号注册、手机号改密，以及 OpenIddict token 登录。
 
-- 手机号验证码登录
-- 手机号注册
-- 手机号修改密码
-- 多SMS厂商支持（阿里云、腾讯云）
-- OpenIddict token 授权模式
+## 功能
 
-## 快速开始
+- 手机号 + 验证码 token 登录
+- 手机号 + 密码 token 登录
+- 手机号注册并确认手机号
+- 手机号验证码改密
+- 默认短信码缓存实现，可替换 `ISmsCodeStore`
+- 短信发送抽象 `ISmsSender`，内置 Aliyun/Tencent 发送器占位实现
 
-### 1. 安装依赖
+## 模块引用
 
-```bash
-dotnet add package Vktun.Abp.PhoneLogin
-```
-
-### 2. 模块配置
-
-在 `YourProjectModule.cs` 中添加依赖：
+按宿主项目需要引用对应模块：
 
 ```csharp
 [DependsOn(
-    typeof(VktunAbpPhoneLoginModule)
+    typeof(PhoneLoginApplicationModule),
+    typeof(PhoneLoginHttpApiModule),
+    typeof(PhoneLoginEntityFrameworkCoreModule)
 )]
+public class YourProjectModule : AbpModule
+{
+}
 ```
 
-### 3. 配置 SMS 厂商
+如果宿主项目已经有自己的用户查询实现，可以不引用 `PhoneLoginEntityFrameworkCoreModule`，自行注册 `IPhoneLoginUserLookup`。
 
-在 `appsettings.json` 中配置 SMS 厂商：
+## 配置
 
 ```json
 {
+  "AuthServer": {
+    "Authority": "https://your-auth-server",
+    "ClientId": "your-client-id",
+    "ClientSecret": "your-client-secret"
+  },
   "Vktun": {
     "PhoneLogin": {
       "Sms": {
-        "ProviderName": "Aliyun", // 可选：Aliyun, Tencent
-        "Aliyun": {
-          "AccessKeyId": "your-aliyun-access-key",
-          "AccessKeySecret": "your-aliyun-access-secret",
-          "RegionId": "cn-hangzhou"
-        },
-        "Tencent": {
-          "SecretId": "your-tencent-secret-id",
-          "SecretKey": "your-tencent-secret-key",
-          "Region": "ap-guangzhou",
-          "SdkAppId": "your-tencent-sdk-app-id"
-        }
+        "SignName": "your-sign-name",
+        "TemplateCode": "login-template",
+        "TemplateCodeForRegister": "register-template",
+        "CodeLength": "6",
+        "CodeExpireSeconds": "300",
+        "ProviderName": "Aliyun"
       }
     }
   }
 }
 ```
 
-### 4. 配置 OpenIddict
+## OpenIddict
 
-在 `OpenIddictServerModule` 中添加手机号登录的授权类型：
+模块会注册自定义 grant handler，并允许 `phone_number_credentials` flow。客户端请求 `/connect/token` 时可使用以下两种凭据之一。
 
-```csharp
-Configure<OpenIddictServerOptions>(options =>
-{
-    options.GrantTypes.Add(PhoneLoginConsts.GrantType);
-});
+验证码登录：
+
+```http
+POST /connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=phone_number_credentials&
+client_id=your-client-id&
+client_secret=your-client-secret&
+phonenumber=13800138000&
+code=123456
 ```
 
-## API 接口
+密码登录：
 
-### 发送验证码
+```http
+POST /connect/token
+Content-Type: application/x-www-form-urlencoded
 
-**POST** `/api/phone-login/send-code`
-
-```json
-{
-  "phoneNumber": "13800138000",
-  "isRegister": false
-}
+grant_type=phone_number_credentials&
+client_id=your-client-id&
+client_secret=your-client-secret&
+phonenumber=13800138000&
+password=YourPassword123!
 ```
 
-### 登录（返回用户ID）
+## HTTP API
 
-**POST** `/api/phone-login/login`
+- `POST /api/phone-login/send-code`
+- `POST /api/phone-login/register`
+- `POST /api/phone-login/change-password`
+- `POST /api/phone-login/request-token/by-code`
+- `POST /api/phone-login/request-token/by-password`
 
-```json
-{
-  "phoneNumber": "13800138000",
-  "code": "123456"
-}
-```
+兼容旧调用：
 
-### 获取 Token
+- `POST /api/phone-login/login` 等同于验证码 token 登录
+- `POST /api/phone-login/request-token` 等同于验证码 token 登录
 
-**POST** `/api/phone-login/request-token`
+## 自定义短信发送
 
-```json
-{
-  "phoneNumber": "13800138000",
-  "code": "123456"
-}
-```
-
-### 注册
-
-**POST** `/api/phone-login/register`
-
-```json
-{
-  "phoneNumber": "13800138000",
-  "code": "123456",
-  "password": "YourPassword123!",
-  "userName": "optional-username"
-}
-```
-
-### 修改密码
-
-**POST** `/api/phone-login/change-password`
-
-```json
-{
-  "phoneNumber": "13800138000",
-  "code": "123456",
-  "newPassword": "NewPassword123!"
-}
-```
-
-## OpenIddict Token Endpoint
-
-使用自定义授权类型 `phone_number_credentials` 获取 token：
-
-**POST** `/connect/token`
-
-```json
-{
-  "grant_type": "phone_number_credentials",
-  "phonenumber": "13800138000",
-  "code": "123456",
-  "client_id": "your-client-id",
-  "client_secret": "your-client-secret"
-}
-```
-
-## 自定义 SMS 厂商
-
-实现 `ISmsSender` 接口并注册到 DI 容器：
+生产环境建议替换默认发送器：
 
 ```csharp
 public class CustomSmsSender : ISmsSender
 {
-    public async Task<bool> SendAsync(string phoneNumber, string code, string templateCode, string signName, string templateParam)
+    public Task<bool> SendAsync(SmsSendRequest request)
     {
-        // 实现自定义 SMS 发送逻辑
-        return true;
+        // Call your SMS provider here.
+        return Task.FromResult(true);
     }
 
-    public async Task<bool> SendAsync(SmsSendRequest request)
+    public Task<bool> SendAsync(
+        string phoneNumber,
+        string code,
+        string templateCode,
+        string signName,
+        string templateParam)
     {
-        return await SendAsync(request.PhoneNumber, "", request.TemplateCode, request.SignName, request.TemplateParam);
+        return SendAsync(new SmsSendRequest
+        {
+            PhoneNumber = phoneNumber,
+            TemplateCode = templateCode,
+            SignName = signName,
+            TemplateParam = templateParam
+        });
     }
 }
+```
 
-// 在模块中注册
-services.AddTransient<ISmsSender, CustomSmsSender>();
+```csharp
+context.Services.AddTransient<ISmsSender, CustomSmsSender>();
 ```

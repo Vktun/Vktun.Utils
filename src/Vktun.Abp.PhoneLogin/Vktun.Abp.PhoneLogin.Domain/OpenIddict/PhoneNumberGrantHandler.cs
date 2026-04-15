@@ -46,19 +46,20 @@ public class PhoneNumberGrantHandler : IOpenIddictServerHandler<OpenIddictServer
         var phoneNumber = context.Request.GetParameter("phone_number")?.ToString()
             ?? context.Request.GetParameter("phonenumber")?.ToString();
         var code = context.Request.GetParameter("code")?.ToString();
+        var password = context.Request.GetParameter("password")?.ToString();
 
-        if (string.IsNullOrWhiteSpace(phoneNumber) || string.IsNullOrWhiteSpace(code))
+        if (string.IsNullOrWhiteSpace(phoneNumber) ||
+            (string.IsNullOrWhiteSpace(code) && string.IsNullOrWhiteSpace(password)))
         {
             context.Reject(
                 error: OpenIddictConstants.Errors.InvalidRequest,
-                description: "Phone number and code are required");
+                description: "Phone number and either code or password are required");
             return;
         }
 
         try
         {
             _phoneNumberValidator.Validate(phoneNumber);
-            await _smsCodeStore.ValidateAsync(phoneNumber, code);
 
             var user = await _userLookup.FindByPhoneNumberAsync(phoneNumber);
             if (user == null)
@@ -74,6 +75,18 @@ public class PhoneNumberGrantHandler : IOpenIddictServerHandler<OpenIddictServer
                 context.Reject(
                     error: OpenIddictConstants.Errors.InvalidGrant,
                     description: "Phone number not confirmed");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                await _smsCodeStore.ValidateAsync(phoneNumber, code!);
+            }
+            else if (!await _identityService.CheckPasswordAsync(user, password))
+            {
+                context.Reject(
+                    error: OpenIddictConstants.Errors.InvalidGrant,
+                    description: "Invalid password");
                 return;
             }
 

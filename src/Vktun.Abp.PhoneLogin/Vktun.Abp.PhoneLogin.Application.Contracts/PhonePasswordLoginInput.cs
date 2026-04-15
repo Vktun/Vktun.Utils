@@ -3,16 +3,14 @@ using Volo.Abp.Auditing;
 
 namespace Vktun.PhoneLogin;
 
-public class ChangePasswordByPhoneInput
+public class PhonePasswordLoginInput
 {
     [Required]
+    [RegularExpression(@"^1[3-9]\d{9}$", ErrorMessage = "Invalid phone number format")]
     public string PhoneNumber { get; set; } = null!;
-
-    [Required]
-    public string Code { get; set; } = null!;
 
     [Required]
     [StringLength(128, MinimumLength = 6)]
     [DisableAuditing]
-    public string NewPassword { get; set; } = null!;
+    public string Password { get; set; } = null!;
 }

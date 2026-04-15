@@ -8,6 +8,10 @@ public interface IPhoneLoginAppService
 
     Task<string> RequestTokenAsync(PhoneLoginInput input);
 
+    Task<string> RequestTokenByCodeAsync(PhoneLoginInput input);
+
+    Task<string> RequestTokenByPasswordAsync(PhonePasswordLoginInput input);
+
     Task RegisterAsync(PhoneRegisterInput input);
 
     Task ChangePasswordByPhoneAsync(ChangePasswordByPhoneInput input);

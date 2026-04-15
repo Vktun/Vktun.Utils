@@ -72,9 +72,18 @@ public static class Program
 
             EnsureAccessToken(requestTokenJson, nameof(IPhoneLoginAppService.RequestTokenAsync));
 
+            var passwordTokenJson = await appService.RequestTokenByPasswordAsync(new PhonePasswordLoginInput
+            {
+                PhoneNumber = phoneNumber,
+                Password = password
+            });
+
+            EnsureAccessToken(passwordTokenJson, nameof(IPhoneLoginAppService.RequestTokenByPasswordAsync));
+
             Console.WriteLine("Phone login validation passed.");
             Console.WriteLine(loginTokenJson);
             Console.WriteLine(requestTokenJson);
+            Console.WriteLine(passwordTokenJson);
             return 0;
         }
         catch (Exception ex)

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Volo.Abp.Auditing;
 
 namespace Vktun.PhoneLogin;
 
@@ -13,6 +14,7 @@ public class PhoneRegisterInput
 
     [Required]
     [StringLength(128, MinimumLength = 6)]
+    [DisableAuditing]
     public string Password { get; set; } = null!;
 
     [StringLength(256)]

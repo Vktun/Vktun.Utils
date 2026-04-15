@@ -33,4 +33,12 @@ public class PhoneLoginController : AbpControllerBase
     [HttpPost("request-token")]
     public Task<string> RequestTokenAsync([FromBody] PhoneLoginInput input)
         => _phoneLoginAppService.RequestTokenAsync(input);
+
+    [HttpPost("request-token/by-code")]
+    public Task<string> RequestTokenByCodeAsync([FromBody] PhoneLoginInput input)
+        => _phoneLoginAppService.RequestTokenByCodeAsync(input);
+
+    [HttpPost("request-token/by-password")]
+    public Task<string> RequestTokenByPasswordAsync([FromBody] PhonePasswordLoginInput input)
+        => _phoneLoginAppService.RequestTokenByPasswordAsync(input);
 }

@@ -20,6 +20,8 @@ public interface IPhoneLoginIdentityService
     Task ResetPasswordAsync(IdentityUser user, string token, string newPassword);
 
     Task<bool> IsPhoneNumberConfirmedAsync(IdentityUser user);
+
+    Task<bool> CheckPasswordAsync(IdentityUser user, string password);
 }
 
 /// <summary>
@@ -56,6 +58,12 @@ public class PhoneLoginIdentityService(
     public Task<bool> IsPhoneNumberConfirmedAsync(IdentityUser user)
     {
         return _userManager.IsPhoneNumberConfirmedAsync(user);
+    }
+
+    public async Task<bool> CheckPasswordAsync(IdentityUser user, string password)
+    {
+        await _identityOptions.SetAsync();
+        return await _userManager.CheckPasswordAsync(user, password);
     }
 
     private static void EnsureSucceeded(IdentityResult result)

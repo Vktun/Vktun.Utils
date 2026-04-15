@@ -1,21 +1,8 @@
-# Vktun.Utils
+# Vktun.Engine.Excel
 
-ABP / .NET utility modules intended to be packaged and reused through NuGet.
+Reusable Excel import, export, template, and workflow engine for Vktun applications.
 
-## Modules
-
-- `Vktun.Abp.PhoneLogin`: phone number registration, SMS code login, phone password token login, and password reset.
-- `Vktun.Abp.Aliyun.Base`: shared Aliyun configuration and service contracts.
-- `Vktun.Abp.Aliyun.Sms`: Aliyun SMS sender integration.
-- `Vktun.Engine.Excel`: reusable Excel import, export, template, and workflow engine.
-
-See `src/Vktun.Abp.PhoneLogin/README.md` for phone login usage.
-
-## Vktun.Engine.Excel
-
-`Vktun.Engine.Excel` provides a NuGet-ready Excel engine with common contracts, ClosedXML-based import/export services, template generation, workflow orchestration, controlled file import, and dependency injection registration.
-
-Register the engine:
+## Register services
 
 ```csharp
 services.AddVktunExcelEngine(options =>
@@ -24,7 +11,7 @@ services.AddVktunExcelEngine(options =>
 });
 ```
 
-Export a workbook:
+## Export
 
 ```csharp
 var request = new ExcelExportRequest
@@ -45,7 +32,7 @@ request.Sheets.Add(sheet);
 var bytes = await excelExportService.ExportAsync(request, cancellationToken);
 ```
 
-Import typed rows:
+## Import
 
 ```csharp
 public sealed class ImportRow
